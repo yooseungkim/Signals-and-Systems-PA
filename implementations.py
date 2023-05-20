@@ -4,11 +4,15 @@ import numpy as np
 images = [cv2.imread("./images/data/00{}.jpg".format(i),
                      cv2.IMREAD_GRAYSCALE) for i in range(0, 7)]
 
+# 2D discrete Fourier transform
+
 
 def fft2(img: np.array):
     M, N = img.shape
     fourier = np.matmul(exp_mu(img), np.matmul(img, exp_nv(img)))
     return fourier
+
+# 2D discrete inverse Fourier transform
 
 
 def inverse_fft2(img: np.array):
@@ -16,6 +20,8 @@ def inverse_fft2(img: np.array):
     inv_fourier = np.matmul(exp_mu(img, inverse=True), np.matmul(
         img, exp_nv(img, inverse=True))) / (M * N)
     return inv_fourier
+
+# high-pass filtering
 
 
 def highpass(img, radius=45):
@@ -28,6 +34,8 @@ def highpass(img, radius=45):
                 continue
             filtered[i][j] = img[i][j]
     return np.array(filtered)
+
+# for 2D discrete Fourier transform
 
 
 def exp_mu(img: np.array, inverse=False):
@@ -53,17 +61,7 @@ def exp_nv(img: np.array, inverse=True):
                 result[v][n] = np.exp(-2j * np.pi * n * v / N)
     return np.array(result)
 
-
-def shift(img: np.array):
-    return np.fft.fftshift(img)
-
-
-def fft_shift(img: np.array):
-    return np.abs(shift(fft2())).round().astype(np.uint8)
-
-
-def show(img: np.array):
-    plt.imshow(fft_shift(img), cmap='gray')
+# azimuthal averaging
 
 
 def azimuthal_averaging(img: np.ndarray):
@@ -87,5 +85,42 @@ def azimuthal_averaging(img: np.ndarray):
     return cum_sum_freq
 
 
-def sigmoid(x, k, x0):
-    return 1 / (1 + np.exp(-k * (x-x0)))
+def get_center(means, epoch=10):
+    # initial centers, choose randomly, but 0 is for fake 1 is for real, so centers[0] < centers[1]
+    centers = tuple(np.random.random(2).sort())
+    for epoch in range(10):
+        # denote which cluster each image belongs to
+        assigned = [0 for _ in range(7)]
+        sums = [0, 0]  # to compute new centers (average )
+        for i, m in enumerate(means):
+            if abs(centers[0] - m) > abs(centers[1] - m):
+                # assign to the cluster with closer center, in this case, it is closer to 1
+                assigned[i] = 1
+                sums[1] += m
+            else:
+                # assigned to 0 by default
+                sums[0] += m
+        # compute new centers with assigned images
+        new_centers = (sums[0] / (assigned.count(0) + 1e-100),
+                       sums[1] / (assigned.count(1) + 1e-100))
+        # add small value to avoid devision by zero error
+
+        # update new centers until it converges
+        if centers == new_centers:
+            break
+        centers = new_centers
+    print(centers)
+    return centers
+
+
+# for fake detection
+# eye location for each image
+eye_location = loc = [
+    np.ix_(range(70, 150), range(60, 260)),
+    np.ix_(range(120, 160), range(0, 160)),
+    np.ix_(range(80, 120), range(75, 225)),
+    np.ix_(range(80, 130), range(75, 255)),
+    np.ix_(range(80, 140), range(75, 255)),
+    np.ix_(range(80, 140), range(75, 255)),
+    np.ix_(range(80, 140), range(70, 230)),
+]
