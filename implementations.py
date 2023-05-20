@@ -109,7 +109,6 @@ def get_center(means, epoch=10):
         if centers == new_centers:
             break
         centers = new_centers
-    print(centers)
     return centers
 
 
